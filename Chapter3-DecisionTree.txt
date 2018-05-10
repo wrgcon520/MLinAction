@@ -1,0 +1,168 @@
+# --*-- coding:utf-8 --*--
+from math import log
+import operator
+
+def calcShannonEnt(dataSet):
+    numEntries = len(dataSet)#得到数据行数，即样本数
+    labelCounts = {}#字典，保存target个数
+    for featVec in dataSet:#遍历样本
+        curLabel = featVec[-1]#得到样本的target
+        if curLabel not in labelCounts.keys():
+            labelCounts[curLabel] = 0#如果不在字典中，则对该key初始化
+        labelCounts[curLabel] += 1#数量加1
+    shannonEnt = 0.0#初始化香农熵
+    for key in labelCounts:#遍历标签字典的key
+        prob = float(labelCounts[key])/numEntries#计算香农墒
+        shannonEnt -= prob * log(prob,2)#计算总的香农墒
+    return shannonEnt
+
+def createDataSet():
+    dataSet = [[1, 1, 'yes'],
+              [1, 1, 'yes'],
+              [1, 0, 'no'],
+              [0, 1, 'no'],
+              [0, 1, 'no']]
+    label = ['no surfacing', 'flippers']
+    return dataSet, label
+
+def splitDataSet(dataSet, axis, value):#得到dataSet中axis列为value的子集
+    retDataSet = []
+    for featVec in dataSet:
+        if featVec[axis] == value:
+            reducedFeatVec = featVec[:axis]
+            reducedFeatVec.extend(featVec[axis+1:])
+            retDataSet.append(reducedFeatVec)
+    return retDataSet
+
+def chooseBestFeatureToSplit(dataSet):#选择最优特征划分数据集
+    numFeatures = len(dataSet[0]) - 1#当前特征数目
+    baseEntropy = calcShannonEnt(dataSet)#计算数据集的香农熵
+    bestInfoGain = 0.0 #信息增益
+    bestFeature = -1 #最优特征，为序号！不是特征名！
+    for i in range(numFeatures):#遍历特征
+        featList = [example[i] for example in dataSet]#保存所有样本的该特征
+        uniqueVals = set(featList)#去除该特征下的重复特征值
+        newEntropy = 0.0#临时保存划分后的香农熵
+        for value in uniqueVals:#对于每一个特征值进行数据集划分
+            subDataSet = splitDataSet(dataSet, i ,value)#划分数据集得到子集
+            prob = len(subDataSet)/float(len(dataSet))#计算子集样本数的比例
+            newEntropy += prob * calcShannonEnt(subDataSet)#计算香农熵
+        infoGain = baseEntropy - newEntropy#计算信息增益
+        if infoGain > bestInfoGain:#如果比当前的信息增益大，则保存
+            bestInfoGain = infoGain
+            bestFeature = i#最有特征序号
+    return bestFeature
+
+def majorityCnt(classList):
+    classCount = {}
+    for vote in clasList:
+        if vote not in classCount.keys():
+            classCount[vote] = 0
+        classCount[vote] += 1
+    sortedClassCount = sorted(classCount.items(),
+                             key=operator.itemgetter(1),
+                             reverse=True)
+    return sortedClassCount[0][0]#返回最多的样本
+
+def createTree(dataSet, labels):
+    classList = [example[-1] for example in dataSet]#保存所有的样本的target
+    if classList.count(classList[0]) == len(classList):#如果类别完全相同则停止划分
+        return classList[0]
+    if len(dataSet[0]) == 1:#只有一个特征了
+        return majorityCnt(classList)
+    bestFeat = chooseBestFeatureToSplit(dataSet)#选择最优的特征序号
+    bestFeatLabel = labels[bestFeat]#最后序号对应的特征名
+    myTree = {bestFeatLabel:{}}
+    del(labels[bestFeat])
+    featValues = [example[bestFeat] for example in dataSet]
+    uniqueVals = set(featValues)
+    for value in uniqueVals:
+        subLabels = labels[:]
+        myTree[bestFeatLabel][value] = createTree(
+            splitDataSet(dataSet, bestFeat, value), subLabels)
+    return myTree
+
+#绘制图像
+import matplotlib.pyplot as plt
+decisionNode = dict(boxstyle="sawtooth", fc="0.8")
+leafNode = dict(boxstyle="round4", fc="0.8")
+arrow_args = dict(arrowstyle="<-")
+
+def plotNode(nodeText, centerPt, parentPt, nodeType):
+    createPlot.ax1.annotate(nodeText, xy=parentPt,
+                           xycoords='axes fraction',
+                           xytext=centerPt, textcoords='axes fraction',
+                           va='center', ha='center', bbox=nodeType,
+                           arrowprops=arrow_args)
+    
+def createPlot():
+    fig = plt.figure(1, facecolor='white')
+    fig.clf()
+    createPlot.ax1 = plt.subplot(111, frameon=False)
+    plotNode(U'desicion',(0.5,0.1),(0.1,0.5), decisionNode)
+    plotNode(U'leaf',(0.8,0.1),(0.3,0.8), leafNode)
+    plt.show()
+    
+def getNumLeafs(myTree):
+    numLeafs = 0
+    firstStr = myTree.keys()[0]
+    secondDict = myTree[firstStr]
+    for key in secondDict.keys():
+        if type(secondDict[key]).__name__=='dict':
+            numLeaf += getNumLeafs(secondDict[key])
+        else:
+            numLeafs += 1
+    return numLeafs
+
+def getTreeDepth(myTree):
+    maxDepth = 0
+    firstStr = myTree.keys()[0]
+    secondDict = myTree[firstStr]
+    for key in secondDict.keys():
+        if type(secondDict[key]).__name__=='dict':
+            thisDepth = 1 + getTreeDepth(secondDict[key])
+        else:
+            thisDepth = 1
+        if thisDepth > maxDepth:
+            maxDepth = thisDepth
+    return maxDepth
+
+def plotMidText(cntrPt, parentPt, txtString):
+    xMid = (parentPt[0]-cntrPt[0])/2.0 + cntrPt[0]
+    yMid = (parentPt[1]-cntrPt[1])/2.0 + cntrPt[1]
+    createPlot.ax1.text(xMid, yMid, txtString)
+
+def classify(inputTree, featLabels, testVec):
+    firstStr = inputTree.keys()[0]
+    secondDict = inputTree[firstStr]
+    featIndex = featLabels.index(firstStr)
+    for key in secondDict.keys():
+        if testVec[featIndex] == key:
+            if type(secondDict[key]).__name__=='dict':
+                classLabel = classify(secondDict[key], 
+                                     featLabels, testVec)
+            else:
+                classLabel = secondDict[key]
+    return classLabel
+
+import pickle
+def storeTree(inputTree, filename):
+    fw = open(filename, 'w')
+    pickle.dump(inputTree, fw)
+    fw.close()
+    
+def grabTree(filename):
+    fr = open(filename)
+    return pickle.load(fr)
+
+
+
+
+
+
+
+
+
+
+
+
